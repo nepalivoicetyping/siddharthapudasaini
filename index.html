@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nepali Voice Typing</title>
+    <style>
+        :root {
+            --primary-blue: #5b8df8;
+            --active-blue: #3b6dcb;
+            --bg-color: #f0f2f5;
+            --toolbar-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scroll, handle in textarea */
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        /* --- Text Area Container --- */
+        .editor-container {
+            flex: 1;
+            position: relative;
+            background: white;
+            margin: 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            padding: 15px;
+            font-size: 1.2rem;
+            resize: none;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        /* --- Language Tabs --- */
+        .lang-tabs {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 5;
+        }
+
+        .lang-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+
+        .lang-btn.active {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+
+        .lang-btn.inactive {
+            background-color: #e0e0e0;
+            color: #555;
+        }
+
+        /* --- Bottom Controls Area --- */
+        .controls-area {
+            background-color: var(--toolbar-bg);
+            border-top: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: env(safe-area-inset-bottom); /* iPhone X+ safe area */
+        }
+
+        /* --- Row 1: Main Actions (Undo, Mic, etc) --- */
+        .main-actions {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 5px;
+            position: relative;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            color: var(--primary-blue);
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .icon-btn:active {
+            background-color: #f0f0f0;
+        }
+
+        /* Big Mic Button */
+        #micBtn {
+            background-color: var(--primary-blue);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(91, 141, 248, 0.4);
+            border: none;
+            margin-top: -30px; /* Float effect */
+            z-index: 20;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        #micBtn.listening {
+            background-color: #ff3b30;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
+
+        /* --- Row 2: Punctuation --- */
+        .punctuation-row {
+            display: flex;
+            justify-content: space-evenly;
+            background-color: #f9f9f9;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            border-top: 1px solid #eee;
+        }
+
+        .punct-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #555;
+            font-weight: bold;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        /* --- Row 3: Sharing/Bottom Actions --- */
+        .bottom-actions {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+        }
+
+        .action-icon {
+            font-size: 1.3rem;
+            color: var(--primary-blue);
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Helper to hide scrollbars but allow scroll */
+        .hidden-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="font-size:1.5rem;">≡</div>
+        <h1>Voice Typing in Nepali</h1>
+        <div><!-- Spacer --></div>
+    </header>
+
+    <div class="editor-container">
+        <textarea id="textArea" placeholder="यहाँ बोल्नुहोस्... (Click Mic to speak)"></textarea>
+        
+        <div class="lang-tabs">
+            <button class="lang-btn inactive" id="btnEnglish" onclick="setLang('en-US')">English</button>
+            <button class="lang-btn active" id="btnNepali" onclick="setLang('ne-NP')">✓ Nepali</button>
+        </div>
+    </div>
+
+    <div class="controls-area">
+        
+        <!-- Row 1: Main Navigation & Mic -->
+        <div class="main-actions">
+            <button class="icon-btn" onclick="undo()">↶</button> <!-- Undo -->
+            <button class="icon-btn" onclick="redo()">↷</button> <!-- Redo -->
+            
+            <button id="micBtn" onclick="toggleMic()">🎤</button>
+            
+            <button class="icon-btn" onclick="insertText(' ')">←</button> <!-- Used as Backspace in UI logic below -->
+            <button class="icon-btn" onclick="clearText()">⌫</button> <!-- Delete/Clear -->
+        </div>
+
+        <!-- Row 2: Punctuation -->
+        <div class="punctuation-row">
+            <button class="punct-btn" onclick="insertText('!')">!</button>
+            <button class="punct-btn" onclick="insertText(';')">;</button>
+            <button class="punct-btn" onclick="insertText(':')">:</button>
+            <button class="punct-btn" onclick="insertText(',')">,</button>
+            <button class="punct-btn" onclick="insertText('.')">.</button>
+            <button class="punct-btn" onclick="insertText('&quot;')">"</button>
+            <button class="punct-btn" onclick="insertText('?')">?</button>
+        </div>
+
+        <!-- Row 3: Sharing & Tools -->
+        <div class="bottom-actions">
+            <button class="action-icon" onclick="clearText()">🗑️</button>
+            <button class="action-icon" onclick="speakText()">🔊</button>
+            <button class="action-icon" onclick="nativeShare()">🔗</button>
+            <button class="action-icon" onclick="shareWhatsapp()">💬</button> <!-- WhatsApp -->
+            <button class="action-icon" onclick="copyToClipboard()">📋</button>
+            <button class="action-icon" style="color: #ff3b30;">♥</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Variables ---
+        const textArea = document.getElementById('textArea');
+        const micBtn = document.getElementById('micBtn');
+        const btnNepali = document.getElementById('btnNepali');
+        const btnEnglish = document.getElementById('btnEnglish');
+        
+        let currentLang = 'ne-NP'; // Default Nepali
+        let recognition = null;
+        let isListening = false;
+        
+        // History for Undo/Redo
+        let historyStack = [''];
+        let historyStep = 0;
+
+        // --- Setup Speech API ---
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Keep listening
+            recognition.interimResults = true; // Show results while talking
+            
+            recognition.onstart = function() {
+                isListening = true;
+                micBtn.classList.add('listening');
+            };
+
+            recognition.onend = function() {
+                // If we didn't manually stop it, try to restart (for continuous feel on iOS)
+                if (isListening) {
+                    try { recognition.start(); } catch(e) { 
+                        isListening = false;
+                        micBtn.classList.remove('listening');
+                    }
+                } else {
+                    micBtn.classList.remove('listening');
+                }
+            };
+
+            recognition.onresult = function(event) {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    insertTextAtCursor(finalTranscript + " "); // Auto add space
+                }
+            };
+        } else {
+            alert("Voice typing not supported in this browser. Please use Safari on iPhone.");
+        }
+
+        // --- Functions ---
+
+        function toggleMic() {
+            if (!recognition) return;
+            
+            if (isListening) {
+                isListening = false;
+                recognition.stop();
+            } else {
+                recognition.lang = currentLang;
+                isListening = true;
+                recognition.start();
+            }
+        }
+
+        function setLang(lang) {
+            currentLang = lang;
+            if (lang === 'ne-NP') {
+                btnNepali.className = 'lang-btn active';
+                btnNepali.innerText = '✓ Nepali';
+                btnEnglish.className = 'lang-btn inactive';
+                btnEnglish.innerText = 'English';
+                textArea.placeholder = "यहाँ बोल्नुहोस्...";
+            } else {
+                btnEnglish.className = 'lang-btn active';
+                btnEnglish.innerText = '✓ English';
+                btnNepali.className = 'lang-btn inactive';
+                btnNepali.innerText = 'Nepali';
+                textArea.placeholder = "Speak here...";
+            }
+            // Restart mic if it was running to apply language change
+            if (isListening) {
+                recognition.stop();
+                // onend will handle restart, but we set flag to true to ensure it comes back
+                isListening = true; 
+            }
+        }
+
+        // --- Text Manipulation ---
+
+        function saveHistory() {
+            // Remove future steps if we are in middle of stack
+            if (historyStep < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyStep + 1);
+            }
+            historyStack.push(textArea.value);
+            historyStep++;
+        }
+
+        // Capture typing for undo history
+        textArea.addEventListener('input', function() {
+            // Debounce could be added here for performance, but simple is fine for text
+            if(textArea.value.length % 5 === 0) saveHistory(); // Save every few chars
+        });
+
+        function insertText(text) {
+            if(text === ' ') {
+                // Simulate backspace for the arrow button
+                let val = textArea.value;
+                textArea.value = val.substring(0, val.length - 1);
+            } else {
+                insertTextAtCursor(text);
+            }
+            saveHistory();
+        }
+
+        function insertTextAtCursor(text) {
+            const startPos = textArea.selectionStart;
+            const endPos = textArea.selectionEnd;
+            const originalValue = textArea.value;
+            
+            textArea.value = originalValue.substring(0, startPos) + text + originalValue.substring(endPos);
+            
+            // Move cursor after text
+            textArea.selectionStart = textArea.selectionEnd = startPos + text.length;
+            textArea.focus();
+            saveHistory();
+        }
+
+        function clearText() {
+            if(confirm("Clear all text?")) {
+                textArea.value = "";
+                saveHistory();
+            }
+        }
+
+        function undo() {
+            if (historyStep > 0) {
+                historyStep--;
+                textArea.value = historyStack[historyStep];
+            }
+        }
+
+        function redo() {
+            if (historyStep < historyStack.length - 1) {
+                historyStep++;
+                textArea.value = historyStack[historyStep];
+            }
+        }
+
+        // --- Sharing & Tools ---
+
+        function copyToClipboard() {
+            textArea.select();
+            textArea.setSelectionRange(0, 99999); // Mobile
+            navigator.clipboard.writeText(textArea.value).then(() => {
+                alert("Text copied!");
+            });
+        }
+
+        function shareWhatsapp() {
+            const text = encodeURIComponent(textArea.value);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
+        function nativeShare() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Nepali Text',
+                    text: textArea.value,
+                }).catch(console.error);
+            } else {
+                alert("Sharing not supported on this browser version.");
+            }
+        }
+
+        function speakText() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(textArea.value);
+                // Try to find a Nepali voice, fallback to Hindi or default
+                // iOS support for Nepali TTS is limited, might use default voice
+                utterance.lang = currentLang; 
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Text-to-speech not supported.");
+            }
+        }
+
+        // Initialize history
+        historyStack[0] = "";
+    </script>
+</body>
+</html>
